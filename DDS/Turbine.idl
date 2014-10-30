@@ -1,0 +1,6 @@
+struct Turbine {
+	long turbineId; //@key
+	long maxProduction;
+	long currentProduction;
+	long setPoint;
+};
