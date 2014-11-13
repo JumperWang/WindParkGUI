@@ -1,0 +1,8 @@
+struct TurbineMessage {
+	long turbineId; //@key
+	long maxProduction;
+	long currentProduction;
+	long setPoint;
+	long msSinceLastWrite;
+	long cacheCount;
+};
