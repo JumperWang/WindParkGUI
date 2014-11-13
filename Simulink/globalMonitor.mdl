@@ -7,7 +7,7 @@ Model {
     NumRootInports	    0
     NumRootOutports	    0
     ParameterArgumentNames  ""
-    ComputedModelVersion    "1.181"
+    ComputedModelVersion    "1.182"
     NumModelReferences	    0
     NumTestPointedSignals   0
   }
@@ -56,7 +56,7 @@ Model {
 	LoadSaveID		"0"
 	Extents			[1005.0, 1245.0]
 	ZoomFactor		[1.0851034291267527]
-	Offset			[101.51565861379767, -158.67803224155585]
+	Offset			[101.5156586137976, -158.67803224155585]
       }
     }
   }
@@ -66,9 +66,9 @@ Model {
   ModifiedByFormat	  "%<Auto>"
   LastModifiedBy	  "thomas"
   ModifiedDateFormat	  "%<Auto>"
-  LastModifiedDate	  "Thu Oct 30 17:47:34 2014"
-  RTWModifiedTimeStamp	  336592007
-  ModelVersionFormat	  "1.%<AutoIncrement:181>"
+  LastModifiedDate	  "Fri Oct 31 11:02:45 2014"
+  RTWModifiedTimeStamp	  336654061
+  ModelVersionFormat	  "1.%<AutoIncrement:182>"
   ConfigurationManager	  "none"
   SampleTimeColors	  off
   SampleTimeAnnotations	  off
@@ -843,7 +843,7 @@ Model {
       SourceBlock	      "DDSLibrary/DATA_READER"
       SourceType	      "DATA_READER"
       SFunctionSpec	      ")"
-      SParam2		      "Turbine"
+      SParam2		      "TurbineMessage"
       SParam3		      "Cluster 1"
       SParam4		      "-1"
       SParam1		      on

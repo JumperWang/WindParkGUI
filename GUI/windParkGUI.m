@@ -1,7 +1,8 @@
 function varargout = windParkGUI
-DDS.import('Turbine.idl');
+DDS.import('TurbineMessage.idl');
 % This UI hard codes the name of the model that is being controlled
 modelName = 'globalMonitor';
+
 % Do some simple error checking on the input
 if ~localValidateInputs(modelName)
     estr = sprintf('The model %s.mdl cannot be found.',modelName);
@@ -52,7 +53,7 @@ try
         'Unit','normalized',...
         'OuterPosition',[0.25 0.1 0.75 0.8],...
         'Xlim',[0 10],...
-        'YLim',[0 300],...
+        'YLim',[0 15500],...
         'Tag','plotAxes');
     xlabel(ha,'Time');
     ylabel(ha,'Power Production');
@@ -192,6 +193,11 @@ try
     
     ad.globalProductionLineHandle = gpLineHandle;
     
+    %Add array to save individual production
+    str = get(hte,'String');
+    nlines = str2double(str);
+    ad.individualProduction = zeros(1,nlines);
+    
     %Add line for global setpoint
     spLineHandle = line('Parent',ha,...
             'XData',[],...
@@ -201,6 +207,27 @@ try
             'Tag',sprintf('Global setpoint'));
         
     ad.globalSetPointLineHandle = spLineHandle;
+    
+    %Add array to save individual setpoints
+    str = get(hte,'String');
+    nlines = str2double(str);
+    ad.individualSetpoints = zeros(1,nlines);
+    
+    %Add line for global max production
+    gmLineHandle = line('Parent',ha,...
+            'XData',[],...
+            'YData',[],...
+            'Color', 'blue',...
+            'EraseMode','xor',...
+            'Tag',sprintf('Global max production'));
+        
+    ad.globalMaxProductionLineHandle = gmLineHandle;
+    
+    %Add array to save individual max production
+    ad.individualMaxProduction = zeros(1,nlines);
+    
+    %Add array to save timestamps for last turbine update
+    ad.individualTimeStamps = nan(1, nlines);
 
     % Create the handles structure
     ad.handles = guihandles(hf);
@@ -276,6 +303,10 @@ set(ad.globalSetPointLineHandle,...
     'XData', [],...
     'YData', []);
 
+set(ad.globalMaxProductionLineHandle,...
+    'XData', [],...
+    'YData', []);
+
 % set the stop time to inf
 set_param(ad.modelName,'StopTime','inf');
 % set the simulation mode to normal
@@ -334,6 +365,10 @@ set(ad.globalSetPointLineHandle,...
     'XData', [],...
     'YData', []);
 
+set(ad.globalMaxProductionLineHandle,...
+    'XData', [],...
+    'YData', []);
+
 % Check that a valid value has been entered
 str = get(hObject,'String');
 newValue = str2double(str);
@@ -357,6 +392,10 @@ if ~isnan(newValue)
     end
     
     ad.lineHandles = hl;
+    ad.individualSetpoints = zeros(1,newValue);
+    ad.individualMaxProduction = zeros(1, newValue);
+    ad.individualTimeStamps = nan(1, newValue);
+    
     guidata(hObject,ad);
 end
 
@@ -450,74 +489,50 @@ ad = guidata(hf);
 turbineId = block.InputPort(1).Data.turbineId;
 
 % Get the handle to the line that currently needs updating
-thisLineHandle = ...
-    ad.lineHandles(turbineId);
-
-% Get the data currently being displayed on the axis
-xdata = get(thisLineHandle,'XData');
-ydata = get(thisLineHandle,'YData');
-
-% Get the simulation time and the block data
-sTime = block.CurrentTime;
-currentProduction = block.InputPort(1).Data.currentProduction;
-
-newXData = [xdata sTime];
-newYData = [ydata currentProduction];
-
-% Display the new data set
-set(thisLineHandle,...
-    'XData',newXData,...
-    'YData',newYData);
-
-%Update global setpoint line
-spLineHandle = ...
-    ad.globalSetPointLineHandle;
-
-spYData = get(spLineHandle, 'YData');
-
-if length(spYData) < length(newYData)
-    setPoint = block.InputPort(1).Data.setPoint;
-    newSPData = [spYData setPoint];
+if turbineId ~= 0
+    thisLineHandle = ...
+        ad.lineHandles(turbineId);
     
-    set(spLineHandle,...
+    % Get the data currently being displayed on the axis
+    xdata = get(thisLineHandle,'XData');
+    ydata = get(thisLineHandle,'YData');
+
+    % Get the simulation time and the block data
+    sTime = block.CurrentTime;
+    currentProduction = block.InputPort(1).Data.currentProduction;
+    
+    newXData = [xdata sTime];
+    newYData = [ydata currentProduction];
+
+    % Display the new data set
+    set(thisLineHandle,...
         'XData',newXData,...
-        'YData', newSPData);
-end
+        'YData',newYData);
 
-%Update global production line
-gpLineHandle = ...
-     ad.globalProductionLineHandle;
+    %Set timestamp
+    ad.individualTimeStamps(turbineId) = sTime;
+    
+    %Check for dead turbines
+    checkForDeadTurbines(ad, hf, block, turbineId);
+    
+    %Update global lines
+    updateGlobalLines(ad, hf, block, turbineId, newYData, newXData);
 
-gpYData = get(gpLineHandle,'YData');
+    % The axes limits may also need changing
+    newXLim = [max(0,sTime-10) max(10,sTime)];
+    set(ad.handles.plotAxes,'Xlim',newXLim);
 
-globalProduction = 0;
-
-if length(gpYData) < length(newYData)
-    for idx=1:length(ad.lineHandles)
-        lineHandle = ...
-            ad.lineHandles(idx);
-        data = get(lineHandle,'YData');
-        if ~isempty(data)
-            globalProduction = globalProduction + data(length(data));
-        end
-    end
-
-    newgpYData = [gpYData globalProduction];
-
-    set(gpLineHandle,...
-        'XData',newXData,...
-        'YData', newgpYData);
-end
-
-% The axes limits may also need changing
-newXLim = [max(0,sTime-10) max(10,sTime)];
-newYLim = [0 globalProduction];
-set(ad.handles.plotAxes,'Xlim',newXLim);
-
-currentYLim = get(ad.handles.plotAxes, 'YLim');
-
-if currentYLim(2) < globalProduction
-    set(ad.handles.plotAxes, 'YLim', newYLim);
+    % currentYLim = get(ad.handles.plotAxes, 'YLim');
+    % 
+    % if currentYLim(2) < globalProduction
+    %     newYLim = [0 globalProduction + 50];
+    %     set(ad.handles.plotAxes, 'YLim', newYLim);
+    % end
+    % 
+    % if currentYLim(2) > globalProduction + 50 && globalProduction ~= 0
+    %      newYLim = [0 globalProduction + 50];
+    %      set(ad.handles.plotAxes, 'YLim', newYLim);
+    % end
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -603,7 +618,95 @@ ad.originalStartFcn = get_param(ad.modelName,'StartFcn');
 % We'll also have a flag saying if the model has been previously built
 ad.modelAlreadyBuilt = false;
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Function to calculate global outputs
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function globalOutput = calculateGlobalOutput(individualOutputArray)
+globalOutput = 0;
 
+for idx=1:length(individualOutputArray)
+    globalOutput = globalOutput + individualOutputArray(idx);
+end
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Function set globalLine
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function setGlobalLine(lineHandle, nextPoint, newYData, newXData)
+gpYData = get (lineHandle, 'YData');
 
+if length(gpYData) < length(newYData)
+    newYData = [gpYData nextPoint];
 
+    set(lineHandle,...
+        'XData', newXData,...
+        'YData', newYData);
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Function update global lines (setpoint, production, max production)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function updateGlobalLines(ad, hf, block, turbineId, newYData, newXData)
+%Update global setpoint line
+globalSetpoint = calculateGlobalOutput(ad.individualSetpoints);
+
+setGlobalLine(ad.globalSetPointLineHandle, globalSetpoint, newYData, newXData)
+
+%Update global max production line
+globalMax = calculateGlobalOutput(ad.individualMaxProduction);
+
+setGlobalLine(ad.globalMaxProductionLineHandle, globalMax, newYData, newXData)
+
+%Update global production line
+globalProduction = calculateGlobalOutput(ad.individualProduction);
+
+setGlobalLine(ad.globalProductionLineHandle, globalProduction, newYData, newXData);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Function checks for dead turbines and resets relevant values
+% if one or more is found
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function checkForDeadTurbines(ad, hf, block, turbineId)
+lastUpdatedArray = ad.individualTimeStamps;
+currentTime = block.currentTime;
+
+%Initialize timestamp array if values are nan
+if isnan(lastUpdatedArray(1))
+    for idx=1:length(ad.lineHandles)
+        lastUpdatedArray(idx) = currentTime;
+    end
+end
+
+%Identify old timestamps and reset relevant values
+for idx=1:length(ad.lineHandles)
+    lastUpdated = lastUpdatedArray(idx);
+    timeDiff = currentTime - lastUpdated;
+    
+    if timeDiff > maxTimeDiff() || isnan(timeDiff)
+        %Reset values
+        ad.individualSetpoints(idx) = 0;
+        ad.individualMaxProduction(idx) = 0;
+        ad.individualProduction(idx) = 0;
+                
+        ydata = get(ad.lineHandles(idx),'YData');
+        
+        if length(ydata) > 0
+            ydata(end) = 0;
+
+            set(ad.lineHandles(idx),...
+                'YData', ydata);
+        end
+    else
+        ad.individualSetpoints(turbineId) = block.InputPort(1).Data.setPoint;
+        ad.individualMaxProduction(turbineId) = block.InputPort(1).Data.maxProduction;
+        ad.individualProduction(turbineId) = block.InputPort(1).Data.currentProduction;    
+    end
+end
+
+%Save updated values
+guidata(hf,ad);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Function returns maximum allowed time difference
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function maxTimeDiff = maxTimeDiff()
+maxTimeDiff = 7;
