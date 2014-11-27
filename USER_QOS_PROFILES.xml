@@ -1,0 +1,98 @@
+<?xml version="1.0"?>
+
+<dds>
+	<qos_library name="Turbine_Library">
+		<qos_profile name="Turbine_Profile" base_name="BuiltinQosLib::Generic.Common" is_default_qos="true">
+			<!-- QoS used to configure the data writer created in the example code -->	   
+			
+			<topic_qos name="TurbineTopicQos">
+				<!-- Vi er ligeglade med, om vi taber en pakke. 
+				 DDS_PROTOCOL_ACKNOWLEDGMENT_MODE (Default) = No application-level acknowledgement. 
+				 AckNack sker gennem Real-Time Publish-Subscribe (RTPS) reliability protocol. -->
+				<reliability>
+				  <kind>DDS_BEST_EFFORT_RELIABILITY_QOS</kind>
+				</reliability>
+				
+				<!-- Vi er kun interesserede i seneste måling -->
+				<history>
+					<kind>KEEP_LAST_HISTORY_QOS</kind>
+					<depth>1</depth>
+				</history>
+				
+
+				<!-- Til ny-tilkomne DataReaders. Vi sender tidligere sendt data til ny opdagede DataReaders,
+				 så længe DataWriteren lever. Data, der er i historikken, bliver sendt. 
+				 Virker bedst, hvis reliability ikke er sat til DDS_BEST_EFFORT_RELIABILITY_QOS. -->
+				<durability>
+					<kind>TRANSIENT_LOCAL_DURABILITY_QOS</kind>
+				</durability>
+				
+			</topic_qos>
+			
+			<datawriter_qos>
+				<publication_name>
+					<name>TurbineDataWriter</name>
+				</publication_name>
+				
+				<lifespan>
+					<duration>
+						 <sec>0</sec>
+						 <nanosec>150000000</nanosec>
+					</duration>
+				</lifespan>
+				
+				<!-- <liveliness>
+					<lease_duration>
+						<sec>0</sec>
+						<nanosec>300000000</nanosec>
+					</lease_duration>
+				</liveliness> -->  
+			</datawriter_qos>
+			
+
+			<!-- QoS used to configure the data reader created in the example code -->				
+			<datareader_qos>
+				<subscription_name>
+					<name>TurbineDataReader</name>
+				</subscription_name>
+
+				<!-- enable the use of multicast -->
+				<multicast>
+					<kind>
+						AUTOMATIC_TRANSPORT_MULTICAST_QOS
+					</kind>
+					<value>
+						<element>
+							<!--<transports></transports>-->
+							<receive_address>239.192.0.1</receive_address>
+							<!--<receive_port></receive_port>-->
+						</element>
+					</value>
+				</multicast>
+
+				<!-- <liveliness>
+					<lease_duration>
+						<sec>1</sec>
+						<nanosec>0</nanosec>
+					</lease_duration>
+				</liveliness> -->
+			</datareader_qos>
+
+			<participant_qos>
+				<participant_name>
+					<name>TurbineParticipant</name>
+					<role_name>TurbineParticipantRole</role_name>
+				</participant_name>
+				<transport_builtin>
+					 <!--
+						 The transport_builtin mask identifies which builtin
+						 transports the domain participant uses. The default value
+						 is UDPv4 | SHMEM.
+					 -->
+					<mask>UDPv4</mask>
+				</transport_builtin>
+			</participant_qos>
+		</qos_profile>
+
+	</qos_library>
+</dds>
