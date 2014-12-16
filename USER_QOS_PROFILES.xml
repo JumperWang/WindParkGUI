@@ -2,8 +2,62 @@
 
 <dds>
 	<qos_library name="Turbine_Library">
-		<qos_profile name="Turbine_Profile" base_name="BuiltinQosLib::Generic.Common" is_default_qos="true">
+		<qos_profile name="Turbine_Profile" is_default_qos="true">
 			<!-- QoS used to configure the data writer created in the example code -->	   
+			<participant_factory_qos>
+				<!-- relevant for siemens -->
+                <logging>
+                    <verbosity>WARNING</verbosity>
+                    <category>PLATFORM</category>
+                    <print_format>VERBOSE_TIMESTAMPED</print_format>
+                    <output_file>ddsadaptor.log</output_file>
+                </logging>
+            </participant_factory_qos>
+			
+			<participant_qos>
+				<participant_name>
+					<name>TurbineParticipant</name>
+					<role_name>TurbineParticipantRole</role_name>
+				</participant_name>
+				<!-- db cleanup after shutdown of a participant -->
+                <database>
+                    <shutdown_cleanup_period>
+                        <sec>DURATION_ZERO_SEC</sec>
+                        <nanosec>1</nanosec>
+                    </shutdown_cleanup_period>
+                </database>
+				<transport_builtin>
+					 <!--
+						 The transport_builtin mask identifies which builtin
+						 transports the domain participant uses. The default value
+						 is UDPv4 | SHMEM.
+					 -->
+					<mask>UDPv4</mask>
+				</transport_builtin>
+                <receiver_pool>
+                    <buffer_size>LENGTH_AUTO</buffer_size>
+                </receiver_pool>
+				<property>
+                    <value>
+                        <element>
+                            <name>dds.transport.UDPv4.builtin.multicast_enabled</name>
+                            <value>1</value>
+                        </element>
+						<element>
+							<name>dds.transport.UDPv4.builtin.parent.message_size_max</name>
+							<value>65535</value>
+						</element>
+						<element>
+							<name>dds.transport.UDPv4.builtin.send_socket_buffer_size </name>
+							<value>65535</value>
+						</element>
+						<element>
+							<name>dds.transport.UDPv4.builtin.recv_socket_buffer_size</name>
+							<value>2097152</value>
+						</element>
+                    </value>
+                </property>
+			</participant_qos>
 			
 			<topic_qos name="TurbineTopicQos">
 				<!-- Vi er ligeglade med, om vi taber en pakke. 
@@ -12,12 +66,6 @@
 				<reliability>
 				  <kind>DDS_BEST_EFFORT_RELIABILITY_QOS</kind>
 				</reliability>
-				
-				<!-- Vi er kun interesserede i seneste måling -->
-				<history>
-					<kind>KEEP_LAST_HISTORY_QOS</kind>
-					<depth>1</depth>
-				</history>
 				
 
 				<!-- Til ny-tilkomne DataReaders. Vi sender tidligere sendt data til ny opdagede DataReaders,
@@ -34,6 +82,12 @@
 					<name>TurbineDataWriter</name>
 				</publication_name>
 				
+				<!--- For reliability purposes -->
+				<history>
+					<kind>KEEP_LAST_HISTORY_QOS</kind>
+					<depth>1</depth>
+				</history>
+				<!-- how long history is relevant. Only relevant for Writers -->
 				<lifespan>
 					<duration>
 						 <sec>0</sec>
@@ -55,7 +109,12 @@
 				<subscription_name>
 					<name>TurbineDataReader</name>
 				</subscription_name>
-
+				<!-- Vi er kun interesserede i seneste måling -->
+				<history>
+					<kind>KEEP_ALL_HISTORY_QOS</kind>
+					<depth>1</depth>
+				</history>
+				
 				<!-- enable the use of multicast -->
 				<multicast>
 					<kind>
@@ -77,21 +136,6 @@
 					</lease_duration>
 				</liveliness> -->
 			</datareader_qos>
-
-			<participant_qos>
-				<participant_name>
-					<name>TurbineParticipant</name>
-					<role_name>TurbineParticipantRole</role_name>
-				</participant_name>
-				<transport_builtin>
-					 <!--
-						 The transport_builtin mask identifies which builtin
-						 transports the domain participant uses. The default value
-						 is UDPv4 | SHMEM.
-					 -->
-					<mask>UDPv4</mask>
-				</transport_builtin>
-			</participant_qos>
 		</qos_profile>
 
 	</qos_library>
